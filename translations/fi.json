@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aimo Park",
+        "description": "Määritä Aimo Parkin pysäköintilupa.",
+        "data": {
+          "refresh_token": "Refresh token (aimoapp.aimopark.io localStorage)",
+          "pool_id": "Allastunnus (poolingGroupUid)",
+          "country_code": "Maakoodi (esim. FI)"
+        }
+      }
+    },
+    "error": {
+      "required": "Tämä kenttä on pakollinen.",
+      "invalid_auth": "Refresh tokenilla kirjautuminen epäonnistui. Tarkista tunnus ja yritä uudelleen.",
+      "cannot_connect": "Aimo Parkin kirjautumispalvelimeen ei saada yhteyttä. Tarkista verkkoyhteys ja yritä uudelleen."
+    },
+    "abort": {
+      "already_configured": "Tämä lupa on jo määritetty."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kyselyikkunat ja välimuisti",
+        "description": "Säädä vilkkaan/normaalin kyselyajan ikkunat ja välimuistin elinaika. Ajat ovat 24 tunnin HH:MM-muodossa (Helsingin aikavyöhyke, arkipäivisin).",
+        "data": {
+          "window_busy_start": "Vilkkaan ikkunan alku (HH:MM)",
+          "window_busy_end": "Vilkkaan ikkunan loppu / normaalin alku (HH:MM)",
+          "window_normal_end": "Normaalin ikkunan loppu (HH:MM)",
+          "normal_cache_ttl": "Normaalin ikkunan välimuistin elinaika (sekuntia)",
+          "offline_cache_ttl_min": "Aktiivisten tuntien ulkopuolisen välimuistin elinaika, minimi (sekuntia)",
+          "offline_cache_ttl_max": "Aktiivisten tuntien ulkopuolisen välimuistin elinaika, maksimi (sekuntia)"
+        }
+      }
+    },
+    "error": {
+      "ttl_min_gte_max": "Minimin on oltava pienempi kuin maksimi.",
+      "invalid_time": "Käytä HH:MM-muotoa (esim. 07:45)."
+    }
+  }
+}

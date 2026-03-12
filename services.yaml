@@ -1,0 +1,16 @@
+force_refresh:
+  name: Force refresh
+  description: >
+    Bypass the time-window cache and immediately fetch fresh data from the
+    Aimo Park BFF. Optionally target a specific config entry; omit to refresh
+    all configured pools.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: >
+        Config entry ID to refresh. If omitted, all Aimo Park entries are
+        refreshed.
+      required: false
+      example: "abc123def456"
+      selector:
+        text:
