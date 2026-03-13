@@ -1,10 +1,24 @@
 # Aimo Park Corporate Pool — Home Assistant Integration
 
-A custom component that exposes the number of **free parking spaces** in your employer's [Aimo Park](https://www.aimopark.io/) corporate pooling group as a Home Assistant sensor.
+A custom component that exposes the number of **free parking spaces** in your employer's [Aimo Park](https://aimoapp.aimopark.io/) corporate pooling group as a Home Assistant sensor.
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [How to get the refresh token](#how-to-get-the-refresh-token)
+- [How to get the Pool ID](#how-to-get-the-pool-id)
+- [Polling windows](#polling-windows-helsinki-timezone-weekdays-only)
+- [Force-refresh service](#force-refresh-service)
+- [Sensor attributes](#sensor-attributes)
+- [Troubleshooting](#troubleshooting)
+- [Glossary](#glossary)
 
 ## Features
 
-- **`sensor.aimo_park_free_spaces`** — real-time free space count for your corporate pool
+- **`sensor.<pool_id>_free_spaces`** — real-time free space count for your corporate pool (entity ID is derived from the configured pool ID)
 - **Time-windowed polling** — polls more aggressively during the busy morning rush and backs off outside working hours, minimising unnecessary API calls
 - **Offline caching** — serves a randomised-TTL cache when outside active polling windows so HA never hits the API needlessly
 - **Refresh token rotation** — automatically stores a new refresh token when the server issues one, so authentication stays valid long-term
@@ -19,7 +33,7 @@ A custom component that exposes the number of **free parking spaces** in your em
 
 ## Installation
 
-1. Copy the `aimo_park/` folder into your `config/custom_components/` directory.
+1. Copy the `aimopark_corporate_pool/` folder into your `config/custom_components/` directory.
 2. Restart Home Assistant.
 3. Go to **Settings → Devices & Services → Add Integration** and search for **Aimo Park Corporate Pool**.
 
@@ -73,10 +87,10 @@ All window boundaries and TTLs can be changed after setup via **Settings → Int
 
 ## Force-refresh service
 
-Call `aimo_park.force_refresh` to bypass the cache immediately:
+Call `aimopark_corporate_pool.force_refresh` to bypass the cache immediately:
 
 ```yaml
-service: aimo_park.force_refresh
+service: aimopark_corporate_pool.force_refresh
 # Optional: target a specific entry when multiple pools are configured
 data:
   entry_id: "<config_entry_id>"
@@ -86,8 +100,9 @@ data:
 
 | Attribute | Description |
 |---|---|
-| `state` | Number of free spaces (integer) |
 | `pool_id` | The configured pooling group ID |
+
+The sensor state itself is the number of free spaces (integer).
 
 ## Troubleshooting
 
@@ -97,3 +112,14 @@ data:
 | Setup fails with *"Unable to reach authentication server"* | Network issue | Check HA's internet connectivity |
 | Sensor shows `unavailable` after setup | Token expired after a long period without rotation | Re-configure the integration with a fresh token |
 | Logs show `Aimo BFF 401 Unauthorized` | Token was rejected by the BFF | Verify the account has access to the configured pool |
+
+## Glossary
+
+| Term | Expansion | Description |
+|---|---|---|
+| **API** | Application Programming Interface | A defined contract that allows two software components to communicate; here refers to the Aimo Park BFF GraphQL endpoint |
+| **BFF** | Backend For Frontend | A server-side proxy layer that aggregates backend calls and adapts responses for a specific client; here: Aimo's GraphQL proxy at `aimoapp-bff.aimopark.io` |
+| **GraphQL** | Graph Query Language | A query language and runtime for APIs; used as the communication protocol between the Aimo web app and the Aimo BFF |
+| **HA** | Home Assistant | The open-source home automation platform this integration runs on |
+| **HACS** | Home Assistant Community Store | A community-maintained add-on manager for Home Assistant that simplifies installation of custom integrations and themes |
+| **TTL** | Time To Live | The maximum age of a cached value in seconds; once exceeded, a fresh API call is made instead of serving the cached result |
