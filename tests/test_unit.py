@@ -152,6 +152,27 @@ def test_password_login_rejects_unexpected_login_page():
     assert error.value.key == "invalid_auth"
 
 
+def test_password_login_rejects_malformed_redirect_and_token_response():
+    session = AuthSession()
+    session.get = lambda url, **kwargs: FakeResponse(
+        body=_login_page(), location="https://aimoapp.aimopark.io/?code="
+    )
+    with pytest.raises(auth.AimoAuthError) as error:
+        run(auth._login(session, "user@example.com", "password"))
+    assert error.value.key == "invalid_auth"
+
+    class NonObjectTokenSession(AuthSession):
+        def post(self, url, **kwargs):
+            response = super().post(url, **kwargs)
+            if url.endswith("/token"):
+                response._body = []
+            return response
+
+    with pytest.raises(auth.AimoAuthError) as error:
+        run(auth._login(NonObjectTokenSession(), "user@example.com", "password"))
+    assert error.value.key == "invalid_auth"
+
+
 def test_refresh_token_validation(monkeypatch):
     class Session:
         def post(self, *args, **kwargs):
@@ -338,6 +359,7 @@ def test_config_flow_setup_and_reauth_paths(monkeypatch):
     result = run(flow.async_step_user(base))
     assert result["title"] == "Aimo Park (p)"
     assert result["data"]["refresh_token"] == "rt"
+    assert all(isinstance(key, str) for key in result["options"])
     result = run(flow.async_step_user({**base, "refresh_token": "", "username": "u"}))
     assert result["errors"]["base"] == "auth_method_required"
 

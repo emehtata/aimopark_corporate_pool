@@ -123,8 +123,9 @@ async def _login(session: aiohttp.ClientSession, username: str, password: str) -
                 location = resp.headers.get("Location", "")
                 page = await resp.text()
                 keep_cookies(resp)
-            if "code=" in location:
-                code = parse_qs(urlparse(location).query)["code"][0]
+            parsed_code = parse_qs(urlparse(location).query).get("code", [None])[0]
+            if parsed_code:
+                code = parsed_code
                 break
 
         if code is None:
@@ -152,6 +153,6 @@ async def _login(session: aiohttp.ClientSession, username: str, password: str) -
         # Unknown e-mail or an unexpected page: no usable login form or JSON reply
         raise AimoAuthError("invalid_auth") from err
 
-    if not tokens.get("access_token"):
+    if not isinstance(tokens, dict) or not tokens.get("access_token"):
         raise AimoAuthError("invalid_auth")
     return tokens

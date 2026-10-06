@@ -101,7 +101,14 @@ _REAUTH_SCHEMA = vol.Schema(
     }
 )
 
-_OPTION_KEYS = tuple(_options_schema({}).schema)
+_OPTION_KEYS = (
+    CONF_WINDOW_BUSY_START,
+    CONF_WINDOW_BUSY_END,
+    CONF_WINDOW_NORMAL_END,
+    CONF_NORMAL_CACHE_TTL,
+    CONF_OFFLINE_CACHE_TTL_MIN,
+    CONF_OFFLINE_CACHE_TTL_MAX,
+)
 
 
 def _validate_options(user_input: dict) -> dict[str, str]:
