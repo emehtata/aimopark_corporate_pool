@@ -2,6 +2,8 @@
 
 A custom component that exposes the number of **free parking spaces** in your [Aimo Park](https://aimoapp.aimopark.io/) corporate pooling groups as Home Assistant sensors, one per pool.
 
+This is a community-developed integration. It is not affiliated with or supported by Aimo Park, and it is provided without warranty.
+
 ## Table of Contents
 
 - [Features](#features)
