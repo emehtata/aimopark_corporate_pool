@@ -18,7 +18,7 @@ A custom component that exposes the number of **free parking spaces** in your em
 
 ## Features
 
-- **`sensor.<pool_id>_free_spaces`** — real-time free space count for your corporate pool (entity ID is derived from the configured pool ID)
+- **`sensor.<pool_name>_free_spaces`** — real-time free space count, one sensor per pool your account can use (discovered automatically, new pools appear without reconfiguring)
 - **Time-windowed polling** — polls more aggressively during the busy morning rush and backs off outside working hours, minimising unnecessary API calls
 - **Offline caching** — serves a randomised-TTL cache when outside active polling windows so HA never hits the API needlessly
 - **Refresh token rotation** — automatically stores a new refresh token when the server issues one, so authentication stays valid long-term
@@ -39,12 +39,12 @@ A custom component that exposes the number of **free parking spaces** in your em
 
 ## Configuration
 
-During setup you will be prompted for three values:
+During setup you will be prompted for these values:
 
 | Field | Description |
 |---|---|
 | **Refresh token** | Long-lived credential from the Aimo web app (see below) |
-| **Pool ID** | `poolingGroupUid` of your employer's pool (see below) |
+| **Pool ID** | Optional. Leave empty to create a sensor for every pool your account can use; set a `poolingGroupUid` to limit to one (see below) |
 | **Country code** | Two-letter country code, e.g. `FI` (default) |
 
 The refresh token is validated against the Aimo authentication server before the entry is created — if the token is invalid or the server is unreachable you will see an error in the setup form.
@@ -60,7 +60,9 @@ The refresh token is validated against the Aimo authentication server before the
 
 > **Security note:** treat the refresh token like a password. It grants access to your Aimo account. Do not share it or commit it to version control.
 
-## How to get the Pool ID
+## How to get the Pool ID (optional)
+
+Pools are discovered automatically from your account's permits, so this is only needed to limit the integration to one pool.
 
 1. While logged in to [https://aimoapp.aimopark.io/](https://aimoapp.aimopark.io/), navigate to your **pooling permission** (the corporate pool page).
 2. Open **Developer Tools → Network** tab and filter by `graphql`.
@@ -100,7 +102,8 @@ data:
 
 | Attribute | Description |
 |---|---|
-| `pool_id` | The configured pooling group ID |
+| `pool_id` | The pooling group ID |
+| `pool_size` | Total number of spaces in the pool |
 
 The sensor state itself is the number of free spaces (integer).
 

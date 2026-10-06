@@ -3,10 +3,10 @@
     "step": {
       "user": {
         "title": "Aimo Park",
-        "description": "Configure your Aimo Park corporate pool.",
+        "description": "Sets up one sensor for every Aimo Park pool your account can use. Leave Pool ID empty to include all of them.",
         "data": {
           "refresh_token": "Refresh token (from aimoapp.aimopark.io localStorage)",
-          "pool_id": "Pool ID (poolingGroupUid)",
+          "pool_id": "Pool ID (optional, limits to one pool)",
           "country_code": "Country code (e.g. FI)"
         }
       }
@@ -17,7 +17,7 @@
       "cannot_connect": "Unable to reach the Aimo Park authentication server. Check your network connection and try again."
     },
     "abort": {
-      "already_configured": "This pool is already configured."
+      "already_configured": "This account is already configured."
     }
   },
   "options": {

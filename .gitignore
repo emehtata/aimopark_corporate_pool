@@ -4,3 +4,7 @@ __pycache__/
 
 # Local environment / secrets (never commit real tokens)
 .env
+*.tmp
+
+# temporary files
+*.tmp

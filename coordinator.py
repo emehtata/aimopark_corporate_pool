@@ -24,7 +24,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     AIMO_BFF_URL,
     AIMO_CLIENT_ID,
-    AIMO_GET_POOL_CAPACITY_QUERY,
+    AIMO_READ_PERMITS_QUERY,
     AIMO_TOKEN_URL,
     CONF_COUNTRY_CODE,
     CONF_NORMAL_CACHE_TTL,
@@ -63,7 +63,6 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
         # Result cache shared across all windows
         self._result_cache: dict | None = None
         self._result_fetched_at: float = 0.0
-        self._result_pool_id: str | None = None
         self._offline_ttl: int = OFFLINE_CACHE_TTL_MIN
 
         # Set to True to skip cache on the next _async_update_data call
@@ -81,8 +80,9 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
     # ------------------------------------------------------------------
 
     @property
-    def pool_id(self) -> str:
-        return self._entry.data[CONF_POOL_ID]
+    def pool_filter(self) -> str | None:
+        """Optional pool ID restricting discovery to a single pool."""
+        return self._entry.data.get(CONF_POOL_ID) or None
 
     @property
     def country_code(self) -> str:
@@ -98,14 +98,13 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
 
     async def _async_update_data(self) -> dict:
         """Return pool capacity data, respecting the time-window cache."""
-        pool_id = self.pool_id
         force = self._force_next
         self._force_next = False
 
         window = self._poll_window()
         age = time.monotonic() - self._result_fetched_at
 
-        if not force and self._result_cache and self._result_pool_id == pool_id:
+        if not force and self._result_cache:
             if window is None and age < self._offline_ttl:
                 _LOGGER.debug(
                     "Aimo Park: offline window, serving cache (age=%.0fs / ttl=%ds)",
@@ -122,17 +121,15 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
             # "fast" window — always fall through and fetch
 
         _LOGGER.info(
-            "Aimo Park: fetching from BFF (pool_id=%s, window=%s, force=%s)",
-            pool_id,
+            "Aimo Park: fetching from BFF (window=%s, force=%s)",
             window,
             force,
         )
-        result = await self._fetch_pool_capacity(pool_id)
+        result = await self._fetch_pools()
 
         # Store to cache
         self._result_cache = result
         self._result_fetched_at = time.monotonic()
-        self._result_pool_id = pool_id
         ttl_min = self._entry.options.get(CONF_OFFLINE_CACHE_TTL_MIN, OFFLINE_CACHE_TTL_MIN)
         ttl_max = self._entry.options.get(CONF_OFFLINE_CACHE_TTL_MAX, OFFLINE_CACHE_TTL_MAX)
         self._offline_ttl = random.randint(ttl_min, ttl_max)
@@ -241,16 +238,16 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
             return self._access_token
         return await self._refresh_access_token()
 
-    async def _fetch_pool_capacity(self, pool_id: str) -> dict:
-        """Query the Aimo BFF and return {"free": <int>, "pool_id": <str>}."""
+    async def _fetch_pools(self) -> dict:
+        """Query the Aimo BFF and return {"pools": {uid: {"name", "free", "size"}}}."""
         token = await self._get_access_token()
         if not token:
             raise UpdateFailed("Failed to obtain Aimo Park access token")
 
         payload = {
-            "operationName": "GetPoolingGroupCapacity",
-            "variables": {"poolingGroupId": pool_id},
-            "query": AIMO_GET_POOL_CAPACITY_QUERY,
+            "operationName": "ReadUnifyPermits",
+            "variables": {},
+            "query": AIMO_READ_PERMITS_QUERY,
         }
         headers = {
             "Content-Type": "application/json",
@@ -272,9 +269,7 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
                     self._token_expires_at = 0.0
                     text = await resp.text()
                     raise UpdateFailed(
-                        f"Aimo BFF 401 Unauthorized — token rejected. "
-                        f"Ensure the configured refresh token belongs to an account "
-                        f"with access to pool {pool_id}. Detail: {text[:200]}"
+                        f"Aimo BFF 401 Unauthorized — token rejected. Detail: {text[:200]}"
                     )
                 if resp.status != 200:
                     text = await resp.text()
@@ -294,10 +289,28 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
             raise UpdateFailed(f"Aimo BFF GraphQL errors: {errors}")
 
         try:
-            free = j["data"]["getPoolingGroupCapacity"]["free"]
+            permits = j["data"]["readUnifyPermits"]
         except (KeyError, TypeError) as err:
             raise UpdateFailed(
                 f"Unexpected Aimo BFF response shape: {j}"
             ) from err
 
-        return {"free": free, "pool_id": pool_id}
+        # A pool can appear under several permits, so key by uid
+        pools: dict[str, dict] = {}
+        for permit in permits or []:
+            for pool in permit.get("accessPermitPoolingGroupInfo") or []:
+                uid = pool.get("uid")
+                if not uid or (self.pool_filter and uid != self.pool_filter):
+                    continue
+                pools[uid] = {
+                    "name": pool.get("name"),
+                    "free": pool.get("freePoolingSpots"),
+                    "size": pool.get("poolSize"),
+                }
+
+        if not pools:
+            _LOGGER.warning(
+                "Aimo Park: no pooling groups found%s",
+                f" matching pool_id {self.pool_filter}" if self.pool_filter else "",
+            )
+        return {"pools": pools}

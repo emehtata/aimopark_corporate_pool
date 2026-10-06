@@ -1,7 +1,7 @@
 {
   "domain": "aimopark_corporate_pool",
   "name": "Aimo Park Corporate Pool",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "config_flow": true,
   "documentation": "https://github.com/emehtata/aimopark_corporate_pool",
   "requirements": [],

@@ -17,11 +17,16 @@ AIMO_TOKEN_URL = (
 # Azure B2C app registered for the Aimo self-service web app
 AIMO_CLIENT_ID = "aa89a62f-e0f8-42eb-9ceb-4f14801a1204"
 
-AIMO_GET_POOL_CAPACITY_QUERY = (
-    "query GetPoolingGroupCapacity($poolingGroupId: String!) {\n"
-    "  getPoolingGroupCapacity(poolingGroupId: $poolingGroupId) {\n"
-    "    free\n"
-    "    __typename\n"
+# Lists every pooling group the account can use, with live free-space counts
+AIMO_READ_PERMITS_QUERY = (
+    "query ReadUnifyPermits {\n"
+    "  readUnifyPermits {\n"
+    "    accessPermitPoolingGroupInfo {\n"
+    "      uid\n"
+    "      name\n"
+    "      freePoolingSpots\n"
+    "      poolSize\n"
+    "    }\n"
     "  }\n"
     "}"
 )

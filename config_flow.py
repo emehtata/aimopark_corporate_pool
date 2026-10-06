@@ -28,18 +28,21 @@ from .const import (
     OFFLINE_CACHE_TTL_MAX,
     OFFLINE_CACHE_TTL_MIN,
 )
+from .coordinator import AimoParkCoordinator
 
 _SETUP_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_REFRESH_TOKEN): str,
-        vol.Required(CONF_POOL_ID): str,
+        vol.Optional(CONF_POOL_ID, default=""): str,
         vol.Optional(CONF_COUNTRY_CODE, default="FI"): str,
     }
 )
 
 
-async def _validate_refresh_token(hass: HomeAssistant, refresh_token: str) -> str | None:
-    """Exchange the refresh token and return the error key, or None on success."""
+async def _validate_refresh_token(
+    hass: HomeAssistant, refresh_token: str
+) -> tuple[str | None, str | None]:
+    """Exchange the refresh token and return (error key, account sub claim)."""
     session = async_get_clientsession(hass)
     try:
         async with session.post(
@@ -53,13 +56,14 @@ async def _validate_refresh_token(hass: HomeAssistant, refresh_token: str) -> st
             timeout=aiohttp.ClientTimeout(total=10),
         ) as resp:
             if resp.status != 200:
-                return "invalid_auth"
+                return "invalid_auth", None
             j = await resp.json(content_type=None)
             if not j.get("access_token"):
-                return "invalid_auth"
+                return "invalid_auth", None
     except aiohttp.ClientError:
-        return "cannot_connect"
-    return None
+        return "cannot_connect", None
+    claims = AimoParkCoordinator._decode_jwt_claims(j["access_token"])
+    return None, claims.get("sub")
 
 
 def _time_str(value: str) -> str:
@@ -124,20 +128,20 @@ class AimoParkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if not refresh_token:
                 errors[CONF_REFRESH_TOKEN] = "required"
-            if not pool_id:
-                errors[CONF_POOL_ID] = "required"
 
             if not errors:
-                token_error = await _validate_refresh_token(self.hass, refresh_token)
+                token_error, account_id = await _validate_refresh_token(
+                    self.hass, refresh_token
+                )
                 if token_error:
                     errors[CONF_REFRESH_TOKEN] = token_error
 
             if not errors:
-                await self.async_set_unique_id(pool_id)
+                await self.async_set_unique_id(account_id)
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
-                    title=f"Aimo Park ({pool_id})",
+                    title=f"Aimo Park ({pool_id})" if pool_id else "Aimo Park",
                     data={
                         CONF_REFRESH_TOKEN: refresh_token,
                         CONF_POOL_ID: pool_id,

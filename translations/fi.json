@@ -3,10 +3,10 @@
     "step": {
       "user": {
         "title": "Aimo Park",
-        "description": "Määritä Aimo Parkin pysäköintilupa.",
+        "description": "Luo anturin jokaiselle Aimo Park -allaskohtaiselle, johon tililläsi on oikeus. Jätä Allastunnus tyhjäksi, jos haluat kaikki.",
         "data": {
           "refresh_token": "Refresh token (aimoapp.aimopark.io localStorage)",
-          "pool_id": "Allastunnus (poolingGroupUid)",
+          "pool_id": "Allastunnus (valinnainen, rajaa yhteen altaaseen)",
           "country_code": "Maakoodi (esim. FI)"
         }
       }
@@ -17,7 +17,7 @@
       "cannot_connect": "Aimo Parkin kirjautumispalvelimeen ei saada yhteyttä. Tarkista verkkoyhteys ja yritä uudelleen."
     },
     "abort": {
-      "already_configured": "Tämä lupa on jo määritetty."
+      "already_configured": "Tämä tili on jo määritetty."
     }
   },
   "options": {
