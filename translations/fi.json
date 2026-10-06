@@ -16,17 +16,29 @@
           "offline_cache_ttl_min": "Aktiivisten tuntien ulkopuolisen välimuistin elinaika, minimi (sekuntia)",
           "offline_cache_ttl_max": "Aktiivisten tuntien ulkopuolisen välimuistin elinaika, maksimi (sekuntia)"
         }
+      },
+      "reauth": {
+        "title": "Tunnistaudu uudelleen Aimo Parkiin",
+        "description": "Anna Aimo Park -sähköposti ja salasana tai refresh token.",
+        "data": {
+          "username": "Aimo Park -sähköposti",
+          "password": "Salasana",
+          "refresh_token": "Refresh token"
+        }
       }
     },
     "error": {
       "required": "Tämä kenttä on pakollinen.",
       "ttl_min_gte_max": "Minimin on oltava pienempi kuin maksimi.",
       "invalid_time": "Käytä HH:MM-muotoa (esim. 07:45).",
+      "auth_method_required": "Anna refresh token tai sekä sähköposti että salasana.",
+      "auth_method_incomplete": "Anna sekä sähköposti että salasana tai käytä refresh tokenia.",
       "invalid_auth": "Väärä sähköposti tai salasana.",
       "cannot_connect": "Aimo Parkin kirjautumispalvelimeen ei saada yhteyttä. Tarkista verkkoyhteys ja yritä uudelleen."
     },
     "abort": {
-      "already_configured": "Tämä tili on jo määritetty."
+      "already_configured": "Tämä tili on jo määritetty.",
+      "reauth_successful": "Tunnistautuminen päivitetty."
     }
   },
   "options": {

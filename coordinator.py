@@ -19,6 +19,7 @@ import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -69,6 +70,7 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
 
         # Set to True to skip cache on the next _async_update_data call
         self._force_next: bool = False
+        self._auth_retry_at: float = 0.0
 
         super().__init__(
             hass,
@@ -204,22 +206,37 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
 
     async def _refresh_access_token(self) -> str | None:
         """Get a new access token via the refresh token, else via username/password."""
+        if time.monotonic() < self._auth_retry_at:
+            raise ConfigEntryAuthFailed("Aimo Park authentication requires re-authentication")
+
         refresh_token = self._entry.data.get(CONF_REFRESH_TOKEN)
         j = await self._request_refresh_grant(refresh_token) if refresh_token else None
 
         username = self._entry.data.get(CONF_USERNAME)
-        password = self._entry.data.get(CONF_PASSWORD)
+        stored_password = self._entry.data.get(CONF_PASSWORD, "")
+        password = self._decode_password(stored_password)
+        if password and not stored_password.startswith("base64:"):
+            self.hass.config_entries.async_update_entry(
+                self._entry,
+                data={
+                    **self._entry.data,
+                    CONF_PASSWORD: self._encode_password(password),
+                },
+            )
         if not (j and j.get("access_token")) and username and password:
             _LOGGER.info("Aimo Park: logging in with username and password")
             try:
                 j = await async_password_login(username, password)
             except AimoAuthError as err:
                 _LOGGER.error("Aimo Park: login failed: %s", err.key)
-                return None
+                self._auth_retry_at = time.monotonic() + 900
+                raise ConfigEntryAuthFailed(
+                    "Aimo Park username/password authentication failed"
+                ) from err
 
         if not j or not j.get("access_token"):
-            _LOGGER.error("Aimo Park: no valid refresh token or login credentials")
-            return None
+            self._auth_retry_at = time.monotonic() + 900
+            raise ConfigEntryAuthFailed("Aimo Park authentication requires re-authentication")
 
         access_token = j["access_token"]
         self._access_token = access_token
@@ -243,6 +260,21 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
             claims.get("exp"),
         )
         return access_token
+
+    @staticmethod
+    def _decode_password(value: str) -> str:
+        """Decode the current base64 form and support pre-0.2.0 entries."""
+        if not value.startswith("base64:"):
+            return value
+        try:
+            return base64.b64decode(value[7:]).decode()
+        except (ValueError, UnicodeDecodeError):
+            return ""
+
+    @staticmethod
+    def _encode_password(value: str) -> str:
+        """Encode a password for storage without changing its value."""
+        return f"base64:{base64.b64encode(value.encode()).decode()}"
 
     async def _get_access_token(self) -> str | None:
         """Return a cached access token, refreshing it if expired or missing."""

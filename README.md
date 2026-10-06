@@ -21,7 +21,8 @@ A custom component that exposes the number of **free parking spaces** in your [A
 - **`sensor.<pool_name>_free_spaces`** — real-time free space count, one sensor per pool your account can use (discovered automatically, new pools appear without reconfiguring)
 - **Time-windowed polling** — polls more aggressively during the busy morning rush and backs off outside working hours, minimising unnecessary API calls
 - **Offline caching** — serves a randomised-TTL cache when outside active polling windows so HA never hits the API needlessly
-- **Username/password login** — sign in with your Aimo Park e-mail and password; the integration keeps a rotating refresh token and logs in again by itself if it expires
+- **Flexible authentication** — use a bare refresh token, or sign in with your Aimo Park e-mail and password
+- **Re-authentication** — Home Assistant opens a re-authentication flow when credentials fail, instead of retrying continuously
 - **Force-refresh service** — `aimo_park.force_refresh` skips the cache on demand (useful in automations)
 - **Configurable windows & TTLs** — all timing thresholds are adjustable after setup via **Settings → Integrations → Aimo Park → Configure**
 
@@ -43,8 +44,8 @@ During setup you will be prompted for these values:
 
 | Field | Description |
 |---|---|
-| **E-mail** | Your Aimo Park account e-mail |
-| **Password** | Your Aimo Park account password |
+| **E-mail and password** | Optional. Use these together when you want automatic login fallback |
+| **Refresh token** | Optional. Use this alone if you do not want to store a password |
 | **Pool ID** | Optional. Leave empty to create a sensor for every pool your account can use; set a `poolingGroupUid` to limit to one (see below) |
 | **Country code** | Two-letter country code, e.g. `FI` (default) |
 | **Window times and cache TTLs** | Busy/normal window boundaries and cache lifetimes; defaults are listed under [Polling windows](#polling-windows-helsinki-timezone-weekdays-only) |
@@ -53,7 +54,9 @@ The credentials are checked against the Aimo login server before the entry is cr
 
 ## Authentication
 
-The integration logs in the same way the Aimo web app does and stores the e-mail, password and the refresh token it receives in the config entry (Home Assistant keeps config entries unencrypted in `.storage`). The refresh token is used for normal operation and renewed automatically; the password is only used to log in again if the refresh token is missing or rejected.
+The integration logs in the same way the Aimo web app does. With e-mail and password setup, it stores the e-mail, a base64-encoded password and the refresh token it receives in the config entry. Base64 is only obfuscation, not encryption; Home Assistant keeps config entries unencrypted in `.storage`. The refresh token is used for normal operation and the password is only used to log in again if the refresh token is missing or rejected.
+
+You can instead provide only a refresh token. In that mode the integration never stores or uses a password. If authentication fails, Home Assistant opens a re-authentication flow. Enter either a replacement refresh token or a new e-mail and password. Failed password authentication is paused for 15 minutes to avoid repeated login attempts and account lockout.
 
 Entries created with version 0.1.0 (refresh token only) keep working. To get the same self-healing login, remove the entry and add it again with your e-mail and password.
 

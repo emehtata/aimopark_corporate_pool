@@ -1,10 +1,16 @@
 """Config flow for the Aimo Park integration."""
 from __future__ import annotations
 
+import base64
+import hashlib
+
+import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
@@ -13,6 +19,8 @@ from homeassistant.helpers.selector import (
 
 from .auth import AimoAuthError, async_password_login
 from .const import (
+    AIMO_CLIENT_ID,
+    AIMO_TOKEN_URL,
     CONF_COUNTRY_CODE,
     CONF_NORMAL_CACHE_TTL,
     CONF_OFFLINE_CACHE_TTL_MAX,
@@ -74,14 +82,25 @@ def _options_schema(current: dict) -> vol.Schema:
 
 _SETUP_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_USERNAME): str,
-        vol.Required(CONF_PASSWORD): TextSelector(
+        vol.Optional(CONF_USERNAME, default=""): str,
+        vol.Optional(CONF_PASSWORD, default=""): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
+        vol.Optional(CONF_REFRESH_TOKEN, default=""): str,
         vol.Optional(CONF_POOL_ID, default=""): str,
         vol.Optional(CONF_COUNTRY_CODE, default="FI"): str,
     }
 ).extend(_options_schema({}).schema)
+
+_REAUTH_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_USERNAME, default=""): str,
+        vol.Optional(CONF_PASSWORD, default=""): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Optional(CONF_REFRESH_TOKEN, default=""): str,
+    }
+)
 
 _OPTION_KEYS = tuple(_options_schema({}).schema)
 
@@ -101,6 +120,39 @@ def _validate_options(user_input: dict) -> dict[str, str]:
         if ttl_min >= ttl_max:
             errors[CONF_OFFLINE_CACHE_TTL_MIN] = "ttl_min_gte_max"
     return errors
+
+
+def _encode_password(password: str) -> str:
+    """Obfuscate the password at rest while retaining legacy plaintext support."""
+    encoded = base64.b64encode(password.encode()).decode()
+    return f"base64:{encoded}"
+
+
+async def _validate_refresh_token(
+    hass: HomeAssistant, refresh_token: str
+) -> tuple[str | None, str | None]:
+    """Exchange a refresh token and return an error key and account identifier."""
+    session = async_get_clientsession(hass)
+    try:
+        async with session.post(
+            AIMO_TOKEN_URL,
+            data={
+                "grant_type": "refresh_token",
+                "client_id": AIMO_CLIENT_ID,
+                "scope": AIMO_CLIENT_ID,
+                "refresh_token": refresh_token,
+            },
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status != 200:
+                return "invalid_auth", None
+            result = await resp.json(content_type=None)
+    except aiohttp.ClientError:
+        return "cannot_connect", None
+    access_token = result.get("access_token")
+    if not access_token:
+        return "invalid_auth", None
+    return None, hashlib.sha256(refresh_token.encode()).hexdigest()
 
 
 class AimoParkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -123,30 +175,41 @@ class AimoParkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             pool_id = user_input.get(CONF_POOL_ID, "").strip()
             username = user_input.get(CONF_USERNAME, "").strip()
             password = user_input.get(CONF_PASSWORD, "")
+            refresh_token = user_input.get(CONF_REFRESH_TOKEN, "").strip()
 
-            if not username:
-                errors[CONF_USERNAME] = "required"
-            if not password:
-                errors[CONF_PASSWORD] = "required"
+            if bool(username) != bool(password):
+                errors["base"] = "auth_method_incomplete"
+            if not refresh_token and not (username and password):
+                errors["base"] = "auth_method_required"
             errors.update(_validate_options(user_input))
 
             tokens: dict = {}
-            if not errors:
+            account_id: str | None = None
+            if not errors and refresh_token and not username:
+                token_error, account_id = await _validate_refresh_token(
+                    self.hass, refresh_token
+                )
+                if token_error:
+                    errors["base"] = token_error
+            elif not errors:
                 try:
                     tokens = await async_password_login(username, password)
                 except AimoAuthError as err:
                     errors["base"] = err.key
+                else:
+                    refresh_token = tokens.get("refresh_token", "")
+                    account_id = username.lower()
 
             if not errors:
-                await self.async_set_unique_id(username.lower())
+                await self.async_set_unique_id(account_id)
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
                     title=f"Aimo Park ({pool_id})" if pool_id else "Aimo Park",
                     data={
                         CONF_USERNAME: username,
-                        CONF_PASSWORD: password,
-                        CONF_REFRESH_TOKEN: tokens.get("refresh_token"),
+                        CONF_PASSWORD: _encode_password(password) if password else "",
+                        CONF_REFRESH_TOKEN: refresh_token,
                         CONF_POOL_ID: pool_id,
                         CONF_COUNTRY_CODE: user_input.get(CONF_COUNTRY_CODE, "FI"),
                     },
@@ -156,6 +219,54 @@ class AimoParkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=_SETUP_SCHEMA,
+            errors=errors,
+        )
+
+    async def async_step_reauth(self, user_input: dict | None = None) -> FlowResult:
+        """Re-authenticate an existing entry after its credentials stop working."""
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        if entry is None:
+            return self.async_abort(reason="unknown_error")
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            username = user_input.get(CONF_USERNAME, "").strip()
+            password = user_input.get(CONF_PASSWORD, "")
+            refresh_token = user_input.get(CONF_REFRESH_TOKEN, "").strip()
+            if not refresh_token and not (username and password):
+                errors["base"] = "auth_method_required"
+            elif bool(username) != bool(password):
+                errors["base"] = "auth_method_incomplete"
+
+            if not errors:
+                try:
+                    if refresh_token and not username:
+                        token_error, _ = await _validate_refresh_token(
+                            self.hass, refresh_token
+                        )
+                        if token_error:
+                            errors["base"] = token_error
+                    else:
+                        tokens = await async_password_login(username, password)
+                        refresh_token = tokens.get("refresh_token", "")
+                except AimoAuthError as err:
+                    errors["base"] = err.key
+
+            if not errors:
+                data = {**entry.data, CONF_REFRESH_TOKEN: refresh_token}
+                if username:
+                    data[CONF_USERNAME] = username
+                    data[CONF_PASSWORD] = _encode_password(password)
+                else:
+                    data[CONF_USERNAME] = ""
+                    data[CONF_PASSWORD] = ""
+                return self.async_update_reload_and_abort(
+                    entry, data=data, reason="reauth_successful"
+                )
+
+        return self.async_show_form(
+            step_id="reauth",
+            data_schema=_REAUTH_SCHEMA,
             errors=errors,
         )
 

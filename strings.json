@@ -16,17 +16,29 @@
           "offline_cache_ttl_min": "Outside-hours cache TTL minimum (seconds)",
           "offline_cache_ttl_max": "Outside-hours cache TTL maximum (seconds)"
         }
+      },
+      "reauth": {
+        "title": "Re-authenticate Aimo Park",
+        "description": "Enter either your Aimo Park e-mail and password, or a refresh token.",
+        "data": {
+          "username": "Aimo Park e-mail",
+          "password": "Password",
+          "refresh_token": "Refresh token"
+        }
       }
     },
     "error": {
       "required": "This field is required.",
       "ttl_min_gte_max": "Minimum TTL must be less than maximum TTL.",
       "invalid_time": "Expected HH:MM format (e.g. 07:45).",
+      "auth_method_required": "Enter a refresh token or both an e-mail and password.",
+      "auth_method_incomplete": "Enter both an e-mail and password, or use a refresh token.",
       "invalid_auth": "Incorrect e-mail or password.",
       "cannot_connect": "Unable to reach the Aimo Park login server. Check your network connection and try again."
     },
     "abort": {
-      "already_configured": "This account is already configured."
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Authentication updated."
     }
   },
   "options": {
