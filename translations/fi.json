@@ -3,10 +3,11 @@
     "step": {
       "user": {
         "title": "Aimo Park",
-        "description": "Luo anturin jokaiselle Aimo Park -allaskohtaiselle, johon tililläsi on oikeus. Jätä Allastunnus tyhjäksi, jos haluat kaikki.",
+        "description": "Anna joko refresh token yksin tai sekä Aimo Park -sähköposti että salasana. Jätä Allastunnus tyhjäksi, jos haluat kaikki tilisi altaat.",
         "data": {
           "username": "Aimo Park -sähköposti",
           "password": "Salasana",
+          "refresh_token": "Refresh token (valinnainen, jos sähköposti ja salasana annetaan)",
           "pool_id": "Allastunnus (valinnainen, rajaa yhteen altaaseen)",
           "country_code": "Maakoodi (esim. FI)",
           "window_busy_start": "Vilkkaan ikkunan alku (HH:MM)",
