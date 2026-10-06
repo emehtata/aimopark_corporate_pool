@@ -1,6 +1,6 @@
 # Aimo Park Corporate Pool — Home Assistant Integration
 
-A custom component that exposes the number of **free parking spaces** in your employer's [Aimo Park](https://aimoapp.aimopark.io/) corporate pooling group as a Home Assistant sensor.
+A custom component that exposes the number of **free parking spaces** in your [Aimo Park](https://aimoapp.aimopark.io/) corporate pooling groups as Home Assistant sensors, one per pool.
 
 ## Table of Contents
 
@@ -8,8 +8,8 @@ A custom component that exposes the number of **free parking spaces** in your em
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [How to get the refresh token](#how-to-get-the-refresh-token)
-- [How to get the Pool ID](#how-to-get-the-pool-id)
+- [Authentication](#authentication)
+- [How to get the Pool ID (optional)](#how-to-get-the-pool-id-optional)
 - [Polling windows](#polling-windows-helsinki-timezone-weekdays-only)
 - [Force-refresh service](#force-refresh-service)
 - [Sensor attributes](#sensor-attributes)
@@ -21,15 +21,15 @@ A custom component that exposes the number of **free parking spaces** in your em
 - **`sensor.<pool_name>_free_spaces`** — real-time free space count, one sensor per pool your account can use (discovered automatically, new pools appear without reconfiguring)
 - **Time-windowed polling** — polls more aggressively during the busy morning rush and backs off outside working hours, minimising unnecessary API calls
 - **Offline caching** — serves a randomised-TTL cache when outside active polling windows so HA never hits the API needlessly
-- **Refresh token rotation** — automatically stores a new refresh token when the server issues one, so authentication stays valid long-term
+- **Username/password login** — sign in with your Aimo Park e-mail and password; the integration keeps a rotating refresh token and logs in again by itself if it expires
 - **Force-refresh service** — `aimo_park.force_refresh` skips the cache on demand (useful in automations)
 - **Configurable windows & TTLs** — all timing thresholds are adjustable after setup via **Settings → Integrations → Aimo Park → Configure**
 
 ## Requirements
 
 - Home Assistant with custom components support (e.g. installed via HACS or manually)
-- An Aimo Park account with access to a corporate pooling group
-- The account's **refresh token** and the pool's **pooling group ID** (see below)
+- An Aimo Park account with access to at least one corporate pooling group
+- The e-mail and password of your Aimo Park account
 
 ## Installation
 
@@ -43,39 +43,27 @@ During setup you will be prompted for these values:
 
 | Field | Description |
 |---|---|
-| **Refresh token** | Long-lived credential from the Aimo web app (see below) |
+| **E-mail** | Your Aimo Park account e-mail |
+| **Password** | Your Aimo Park account password |
 | **Pool ID** | Optional. Leave empty to create a sensor for every pool your account can use; set a `poolingGroupUid` to limit to one (see below) |
 | **Country code** | Two-letter country code, e.g. `FI` (default) |
+| **Window times and cache TTLs** | Busy/normal window boundaries and cache lifetimes; defaults are listed under [Polling windows](#polling-windows-helsinki-timezone-weekdays-only) |
 
-The refresh token is validated against the Aimo authentication server before the entry is created — if the token is invalid or the server is unreachable you will see an error in the setup form.
+The credentials are checked against the Aimo login server before the entry is created. If they are wrong or the server is unreachable you will see an error in the setup form.
 
-## How to get the refresh token
+## Authentication
 
-1. Open [https://aimoapp.aimopark.io/](https://aimoapp.aimopark.io/) in your browser and log in with your Aimo account.
-2. Open the browser **Developer Tools** (press `F12` or `Ctrl+Shift+I`).
-3. Navigate to the **Application** tab (Chrome/Edge) or **Storage** tab (Firefox).
-4. Expand **Local Storage** and select the `https://aimoapp.aimopark.io` entry.
-5. Find the key whose value contains `"credentialType": "RefreshToken"`.
-6. Copy the value of the **`secret`** property — this is your refresh token.
+The integration logs in the same way the Aimo web app does and stores the e-mail, password and the refresh token it receives in the config entry (Home Assistant keeps config entries unencrypted in `.storage`). The refresh token is used for normal operation and renewed automatically; the password is only used to log in again if the refresh token is missing or rejected.
 
-> **Security note:** treat the refresh token like a password. It grants access to your Aimo account. Do not share it or commit it to version control.
+Entries created with version 0.1.0 (refresh token only) keep working. To get the same self-healing login, remove the entry and add it again with your e-mail and password.
 
 ## How to get the Pool ID (optional)
 
 Pools are discovered automatically from your account's permits, so this is only needed to limit the integration to one pool.
 
-1. While logged in to [https://aimoapp.aimopark.io/](https://aimoapp.aimopark.io/), navigate to your **pooling permission** (the corporate pool page).
-2. Open **Developer Tools → Network** tab and filter by `graphql`.
-3. Look for a request named `GetPoolingGroupCapacity`.
-4. Open the request's **Payload** (or **Request Body**) and find the `variables` object:
-   ```json
-   {
-     "operationName": "GetPoolingGroupCapacity",
-     "variables": { "poolingGroupId": "copy-this-value" },
-     ...
-   }
-   ```
-5. Copy the value of `poolingGroupId` — this is your Pool ID.
+Every discovered pool's ID is shown in the `pool_id` attribute of its sensor (**Developer Tools → States**). Copy it from there and enter it as the Pool ID when adding the integration again.
+
+Existing entries that were set up with a Pool ID keep working and stay limited to that pool.
 
 ## Polling windows (Helsinki timezone, weekdays only)
 
@@ -93,7 +81,7 @@ Call `aimopark_corporate_pool.force_refresh` to bypass the cache immediately:
 
 ```yaml
 service: aimopark_corporate_pool.force_refresh
-# Optional: target a specific entry when multiple pools are configured
+# Optional: target a specific entry when multiple accounts or pool filters are configured
 data:
   entry_id: "<config_entry_id>"
 ```
@@ -111,10 +99,10 @@ The sensor state itself is the number of free spaces (integer).
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Setup fails with *"Could not authenticate"* | Refresh token is expired or wrong | Re-fetch the token from the Aimo web app |
-| Setup fails with *"Unable to reach authentication server"* | Network issue | Check HA's internet connectivity |
-| Sensor shows `unavailable` after setup | Token expired after a long period without rotation | Re-configure the integration with a fresh token |
-| Logs show `Aimo BFF 401 Unauthorized` | Token was rejected by the BFF | Verify the account has access to the configured pool |
+| Setup fails with *"Incorrect e-mail or password"* | Wrong credentials | Check that you can log in at aimoapp.aimopark.io with the same e-mail and password |
+| Setup fails with *"Unable to reach the Aimo Park login server"* | Network issue | Check HA's internet connectivity |
+| Sensor shows `unavailable` and logs show `login failed` | Password was changed or the account is locked | Remove the entry and add it again with the current password |
+| Logs show `Aimo BFF 401 Unauthorized` | Token was rejected by the BFF | Verify the account has access to the pools, or to the configured Pool ID |
 
 ## Glossary
 

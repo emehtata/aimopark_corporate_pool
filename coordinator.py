@@ -17,10 +17,12 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .auth import AimoAuthError, async_password_login
 from .const import (
     AIMO_BFF_URL,
     AIMO_CLIENT_ID,
@@ -175,13 +177,8 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
         except Exception:  # noqa: BLE001
             return {}
 
-    async def _refresh_access_token(self) -> str | None:
-        """Obtain a new access token via the Azure B2C refresh-token grant."""
-        refresh_token = self._entry.data.get(CONF_REFRESH_TOKEN)
-        if not refresh_token:
-            _LOGGER.error("Aimo Park: refresh token is not configured")
-            return None
-
+    async def _request_refresh_grant(self, refresh_token: str) -> dict | None:
+        """Exchange a refresh token; returns the token response or None on failure."""
         session = async_get_clientsession(self.hass)
         try:
             async with session.post(
@@ -196,26 +193,41 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
             ) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    _LOGGER.error(
+                    _LOGGER.warning(
                         "Aimo Park: token refresh returned %s: %s", resp.status, text
                     )
                     return None
-                j = await resp.json(content_type=None)
+                return await resp.json(content_type=None)
         except aiohttp.ClientError as err:
             _LOGGER.error("Aimo Park: token refresh request failed: %s", err)
             return None
 
-        access_token = j.get("access_token")
-        if not access_token:
-            _LOGGER.error("Aimo Park: token response is missing access_token")
+    async def _refresh_access_token(self) -> str | None:
+        """Get a new access token via the refresh token, else via username/password."""
+        refresh_token = self._entry.data.get(CONF_REFRESH_TOKEN)
+        j = await self._request_refresh_grant(refresh_token) if refresh_token else None
+
+        username = self._entry.data.get(CONF_USERNAME)
+        password = self._entry.data.get(CONF_PASSWORD)
+        if not (j and j.get("access_token")) and username and password:
+            _LOGGER.info("Aimo Park: logging in with username and password")
+            try:
+                j = await async_password_login(username, password)
+            except AimoAuthError as err:
+                _LOGGER.error("Aimo Park: login failed: %s", err.key)
+                return None
+
+        if not j or not j.get("access_token"):
+            _LOGGER.error("Aimo Park: no valid refresh token or login credentials")
             return None
 
+        access_token = j["access_token"]
         self._access_token = access_token
         self._token_expires_at = (
             time.monotonic() + j.get("expires_in", 3600) - 60
         )
 
-        # Rotate the refresh token if the server issued a new one
+        # Persist the refresh token whenever the server issued a new one
         new_rt = j.get("refresh_token")
         if new_rt and new_rt != refresh_token:
             self.hass.config_entries.async_update_entry(

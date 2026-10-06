@@ -14,6 +14,10 @@ AIMO_TOKEN_URL = (
     "https://account.aimoapp.com/aimoparkextauth.onmicrosoft.com"
     "/b2c_1a_aimo_susi/oauth2/v2.0/token"
 )
+AIMO_AUTHORIZE_URL = AIMO_TOKEN_URL.removesuffix("/token") + "/authorize"
+AIMO_AUTH_HOST = "https://account.aimoapp.com"
+# Redirect URI registered for the Aimo web app; also sent as Origin on code redemption
+AIMO_REDIRECT_URI = "https://aimoapp.aimopark.io/"
 # Azure B2C app registered for the Aimo self-service web app
 AIMO_CLIENT_ID = "aa89a62f-e0f8-42eb-9ceb-4f14801a1204"
 

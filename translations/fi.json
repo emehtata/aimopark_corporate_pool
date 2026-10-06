@@ -5,15 +5,24 @@
         "title": "Aimo Park",
         "description": "Luo anturin jokaiselle Aimo Park -allaskohtaiselle, johon tililläsi on oikeus. Jätä Allastunnus tyhjäksi, jos haluat kaikki.",
         "data": {
-          "refresh_token": "Refresh token (aimoapp.aimopark.io localStorage)",
+          "username": "Aimo Park -sähköposti",
+          "password": "Salasana",
           "pool_id": "Allastunnus (valinnainen, rajaa yhteen altaaseen)",
-          "country_code": "Maakoodi (esim. FI)"
+          "country_code": "Maakoodi (esim. FI)",
+          "window_busy_start": "Vilkkaan ikkunan alku (HH:MM)",
+          "window_busy_end": "Vilkkaan ikkunan loppu / normaalin alku (HH:MM)",
+          "window_normal_end": "Normaalin ikkunan loppu (HH:MM)",
+          "normal_cache_ttl": "Normaalin ikkunan välimuistin elinaika (sekuntia)",
+          "offline_cache_ttl_min": "Aktiivisten tuntien ulkopuolisen välimuistin elinaika, minimi (sekuntia)",
+          "offline_cache_ttl_max": "Aktiivisten tuntien ulkopuolisen välimuistin elinaika, maksimi (sekuntia)"
         }
       }
     },
     "error": {
       "required": "Tämä kenttä on pakollinen.",
-      "invalid_auth": "Refresh tokenilla kirjautuminen epäonnistui. Tarkista tunnus ja yritä uudelleen.",
+      "ttl_min_gte_max": "Minimin on oltava pienempi kuin maksimi.",
+      "invalid_time": "Käytä HH:MM-muotoa (esim. 07:45).",
+      "invalid_auth": "Väärä sähköposti tai salasana.",
       "cannot_connect": "Aimo Parkin kirjautumispalvelimeen ei saada yhteyttä. Tarkista verkkoyhteys ja yritä uudelleen."
     },
     "abort": {
