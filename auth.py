@@ -31,6 +31,11 @@ class AimoAuthError(Exception):
         self.key = key
 
 
+def encode_password(password: str) -> str:
+    """Obfuscate a password for config-entry storage."""
+    return f"base64:{base64.b64encode(password.encode()).decode()}"
+
+
 async def async_password_login(username: str, password: str) -> dict:
     """Log in and return the token response (access_token, refresh_token, ...)."""
     # Cookies are forwarded by hand in _login: aiohttp's jar re-encodes the B2C cookies and B2C answers 400

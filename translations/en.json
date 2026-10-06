@@ -5,8 +5,8 @@
         "title": "Aimo Park",
         "description": "Enter either a refresh token by itself, or both your Aimo Park e-mail and password. Leave Pool ID empty to include all pools your account can use.",
         "data": {
-          "username": "Aimo Park e-mail",
-          "password": "Password",
+          "username": "Aimo Park e-mail (optional when using a refresh token)",
+          "password": "Password (optional when using a refresh token)",
           "refresh_token": "Refresh token (optional if e-mail and password are provided)",
           "pool_id": "Pool ID (optional, limits to one pool)",
           "country_code": "Country code (e.g. FI)",

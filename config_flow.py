@@ -1,7 +1,7 @@
 """Config flow for the Aimo Park integration."""
 from __future__ import annotations
 
-import base64
+import datetime
 import hashlib
 
 import aiohttp
@@ -17,7 +17,7 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .auth import AimoAuthError, async_password_login
+from .auth import AimoAuthError, async_password_login, encode_password
 from .const import (
     AIMO_CLIENT_ID,
     AIMO_TOKEN_URL,
@@ -43,8 +43,7 @@ from .const import (
 def _time_str(value: str) -> str:
     """Validate and normalise an HH:MM string. Raises ValueError on bad input."""
     try:
-        h, m = value.strip().split(":")
-        return f"{int(h):02d}:{int(m):02d}"
+        return datetime.datetime.strptime(value.strip(), "%H:%M").strftime("%H:%M")
     except (ValueError, AttributeError) as err:
         raise ValueError("Expected HH:MM format") from err
 
@@ -120,12 +119,6 @@ def _validate_options(user_input: dict) -> dict[str, str]:
         if ttl_min >= ttl_max:
             errors[CONF_OFFLINE_CACHE_TTL_MIN] = "ttl_min_gte_max"
     return errors
-
-
-def _encode_password(password: str) -> str:
-    """Obfuscate the password at rest while retaining legacy plaintext support."""
-    encoded = base64.b64encode(password.encode()).decode()
-    return f"base64:{encoded}"
 
 
 async def _validate_refresh_token(
@@ -208,7 +201,7 @@ class AimoParkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     title=f"Aimo Park ({pool_id})" if pool_id else "Aimo Park",
                     data={
                         CONF_USERNAME: username,
-                        CONF_PASSWORD: _encode_password(password) if password else "",
+                        CONF_PASSWORD: encode_password(password) if password else "",
                         CONF_REFRESH_TOKEN: refresh_token,
                         CONF_POOL_ID: pool_id,
                         CONF_COUNTRY_CODE: user_input.get(CONF_COUNTRY_CODE, "FI"),
@@ -256,7 +249,7 @@ class AimoParkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data = {**entry.data, CONF_REFRESH_TOKEN: refresh_token}
                 if username:
                     data[CONF_USERNAME] = username
-                    data[CONF_PASSWORD] = _encode_password(password)
+                    data[CONF_PASSWORD] = encode_password(password)
                 else:
                     data[CONF_USERNAME] = ""
                     data[CONF_PASSWORD] = ""

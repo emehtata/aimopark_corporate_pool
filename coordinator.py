@@ -23,7 +23,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .auth import AimoAuthError, async_password_login
+from .auth import AimoAuthError, async_password_login, encode_password
 from .const import (
     AIMO_BFF_URL,
     AIMO_CLIENT_ID,
@@ -149,8 +149,7 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
         val = self._entry.options.get(option_key)
         if val:
             try:
-                h, m = str(val).split(":", 1)
-                return datetime.time(int(h), int(m))
+                return datetime.datetime.strptime(str(val), "%H:%M").time()
             except (ValueError, AttributeError):
                 pass
         return default
@@ -220,7 +219,7 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
                 self._entry,
                 data={
                     **self._entry.data,
-                    CONF_PASSWORD: self._encode_password(password),
+                    CONF_PASSWORD: encode_password(password),
                 },
             )
         if not (j and j.get("access_token")) and username and password:
@@ -270,11 +269,6 @@ class AimoParkCoordinator(DataUpdateCoordinator[dict]):
             return base64.b64decode(value[7:]).decode()
         except (ValueError, UnicodeDecodeError):
             return ""
-
-    @staticmethod
-    def _encode_password(value: str) -> str:
-        """Encode a password for storage without changing its value."""
-        return f"base64:{base64.b64encode(value.encode()).decode()}"
 
     async def _get_access_token(self) -> str | None:
         """Return a cached access token, refreshing it if expired or missing."""

@@ -5,8 +5,8 @@
         "title": "Aimo Park",
         "description": "Anna joko refresh token yksin tai sekä Aimo Park -sähköposti että salasana. Jätä Allastunnus tyhjäksi, jos haluat kaikki tilisi altaat.",
         "data": {
-          "username": "Aimo Park -sähköposti",
-          "password": "Salasana",
+          "username": "Aimo Park -sähköposti (valinnainen refresh tokenia käytettäessä)",
+          "password": "Salasana (valinnainen refresh tokenia käytettäessä)",
           "refresh_token": "Refresh token (valinnainen, jos sähköposti ja salasana annetaan)",
           "pool_id": "Allastunnus (valinnainen, rajaa yhteen altaaseen)",
           "country_code": "Maakoodi (esim. FI)",
