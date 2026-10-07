@@ -36,9 +36,16 @@ This is a community-developed integration. It is not affiliated with or supporte
 
 ## Installation
 
-1. Copy the `aimopark_corporate_pool/` folder into your `config/custom_components/` directory.
-2. Restart Home Assistant.
-3. Go to **Settings → Devices & Services → Add Integration** and search for **Aimo Park Corporate Pool**.
+### HACS
+
+1. In HACS, open **Integrations** and search for **Aimo Park Corporate Pool**.
+2. Install the integration.
+3. Restart Home Assistant.
+4. Go to **Settings → Devices & Services → Add Integration** and search for **Aimo Park Corporate Pool**.
+
+### Manual
+
+Copy `custom_components/aimopark_corporate_pool/` from this repository into your Home Assistant `config/custom_components/` directory, restart Home Assistant, and add **Aimo Park Corporate Pool** from **Settings → Devices & Services → Add Integration**.
 
 ## Configuration
 
